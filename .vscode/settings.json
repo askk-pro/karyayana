@@ -1,67 +1,107 @@
 {
-    // CSS/SCSS Settings
-    "css.validate": false,
-    "scss.validate": false,
-    "less.validate": false,
-    // Disable CSS lint warnings
-    "css.lint.duplicateProperties": "ignore",
-    "css.lint.emptyRules": "ignore",
-    "css.lint.importStatement": "ignore",
-    "css.lint.boxModel": "ignore",
-    "css.lint.universalSelector": "ignore",
-    "css.lint.zeroUnits": "ignore",
-    "css.lint.fontFaceProperties": "ignore",
-    "css.lint.hexColorLength": "ignore",
-    "css.lint.argumentsInColorFunction": "ignore",
-    "css.lint.unknownProperties": "ignore",
-    "css.lint.validProperties": [],
-    // Tailwind CSS specific
-    "tailwindCSS.validate": true,
-    "tailwindCSS.lint.cssConflict": "ignore",
-    "tailwindCSS.lint.invalidApply": "ignore",
-    "tailwindCSS.lint.invalidScreen": "ignore",
-    "tailwindCSS.lint.invalidVariant": "ignore",
-    "tailwindCSS.lint.invalidConfigPath": "ignore",
-    "tailwindCSS.lint.invalidTailwindDirective": "ignore",
-    "tailwindCSS.lint.recommendedVariantOrder": "ignore",
-    // TypeScript/JavaScript Settings
-    "typescript.preferences.includePackageJsonAutoImports": "auto",
-    "typescript.suggest.autoImports": true,
-    "typescript.updateImportsOnFileMove.enabled": "always",
-    // General Editor Settings
-    "editor.codeActionsOnSave": {
-        "source.fixAll.eslint": "explicit",
-        "source.organizeImports": "explicit"
-    },
-    // File Associations
-    "files.associations": {
-        "*.css": "tailwindcss",
-        "*.scss": "tailwindcss"
-    },
-    // Emmet for Tailwind
-    "emmet.includeLanguages": {
-        "javascript": "javascriptreact",
-        "typescript": "typescriptreact"
-    },
-    // Auto-completion for Tailwind classes
-    "editor.quickSuggestions": {
-        "strings": true
-    },
-    // Disable specific warnings
-    "problems.decorations.enabled": true,
-    "problems.showCurrentInStatus": false,
-    // Hide certain files from explorer
-    "files.exclude": {
-        "**/node_modules": true,
-        "**/.next": true,
-        "**/dist": true,
-        "**/.git": true
-    },
-    // Search exclude
-    "search.exclude": {
-        "**/node_modules": true,
-        "**/.next": true,
-        "**/dist": true,
-        "**/out": true
-    }
+  // CSS/SCSS Settings
+  "css.validate": false,
+  "scss.validate": false,
+  "less.validate": false,
+
+  // Disable CSS lint warnings
+  "css.lint.duplicateProperties": "ignore",
+  "css.lint.emptyRules": "ignore",
+  "css.lint.importStatement": "ignore",
+  "css.lint.boxModel": "ignore",
+  "css.lint.universalSelector": "ignore",
+  "css.lint.zeroUnits": "ignore",
+  "css.lint.fontFaceProperties": "ignore",
+  "css.lint.hexColorLength": "ignore",
+  "css.lint.argumentsInColorFunction": "ignore",
+  "css.lint.unknownProperties": "ignore",
+  "css.lint.validProperties": [],
+
+  // Tailwind CSS specific
+  "tailwindCSS.validate": true,
+  "tailwindCSS.lint.cssConflict": "ignore",
+  "tailwindCSS.lint.invalidApply": "ignore",
+  "tailwindCSS.lint.invalidScreen": "ignore",
+  "tailwindCSS.lint.invalidVariant": "ignore",
+  "tailwindCSS.lint.invalidConfigPath": "ignore",
+  "tailwindCSS.lint.invalidTailwindDirective": "ignore",
+  "tailwindCSS.lint.recommendedVariantOrder": "ignore",
+
+  // TypeScript/JavaScript Settings
+  "typescript.preferences.includePackageJsonAutoImports": "auto",
+  "typescript.suggest.autoImports": true,
+  "typescript.updateImportsOnFileMove.enabled": "always",
+
+  // ESLint Settings
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+  "eslint.workingDirectories": ["."],
+
+  // General Editor Settings
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+
+  // File Associations
+  "files.associations": {
+    "*.css": "tailwindcss",
+    "*.scss": "tailwindcss"
+  },
+
+  // Emmet for Tailwind
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact",
+    "typescript": "typescriptreact"
+  },
+
+  // Auto-completion for Tailwind classes
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+
+  // Disable specific warnings
+  "problems.decorations.enabled": true,
+  "problems.showCurrentInStatus": false,
+
+  // Format on save
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+  // Language-specific formatters
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[scss]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // Hide certain files from explorer
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/dist": true,
+    "**/.git": true,
+    "**/out": true
+  },
+
+  // Search exclude
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/dist": true,
+    "**/out": true,
+    "**/.git": true
+  }
 }

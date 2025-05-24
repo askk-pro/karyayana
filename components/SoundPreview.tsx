@@ -16,7 +16,15 @@ export function SoundPreview({ url, size = "default" }: SoundPreviewProps) {
 
   const togglePlay = () => {
     if (!audioRef.current) return
-    isPlaying ? audioRef.current.pause() : audioRef.current.play()
+
+    if (isPlaying) {
+      audioRef.current.pause()
+    } else {
+      audioRef.current.currentTime = 0
+      audioRef.current.play().catch((err) => {
+        console.error("Playback error:", err)
+      })
+    }
   }
 
   useEffect(() => {
@@ -42,7 +50,7 @@ export function SoundPreview({ url, size = "default" }: SoundPreviewProps) {
   }, [url])
 
   return (
-    <Button onClick={togglePlay} size={size} variant="ghost" className="h-8 w-8 p-0">
+    <Button onClick={togglePlay} className="h-8 w-8 p-0" {...{ variant: "ghost", size }}>
       {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
     </Button>
   )

@@ -44,6 +44,12 @@ function createTables() {
       filename TEXT NOT NULL,
       filepath TEXT NOT NULL,
       duration REAL,
+      volume REAL DEFAULT 1.0,
+      start_time REAL DEFAULT 0,
+      end_time REAL,
+      primary_color TEXT DEFAULT '#3b82f6',
+      secondary_color TEXT DEFAULT '#60a5fa',
+      display_order INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -88,6 +94,9 @@ function createTables() {
       pause_timestamp INTEGER,
       total_paused_duration INTEGER DEFAULT 0,
       
+      -- Display order
+      display_order INTEGER DEFAULT 0,
+      
       -- Timestamps
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -125,17 +134,15 @@ function createTables() {
 function runMigrations() {
   console.log("Running database migrations...")
 
-  // Check if display_order column exists
-  const tableInfo = db.prepare("PRAGMA table_info(timers)").all()
-  const hasDisplayOrder = tableInfo.some((column) => column.name === "display_order")
+  // Check if display_order column exists in timers
+  const timerTableInfo = db.prepare("PRAGMA table_info(timers)").all()
+  const hasTimerDisplayOrder = timerTableInfo.some((column) => column.name === "display_order")
 
-  if (!hasDisplayOrder) {
+  if (!hasTimerDisplayOrder) {
     console.log("Adding display_order column to timers table...")
     try {
-      // Add the display_order column
       db.exec("ALTER TABLE timers ADD COLUMN display_order INTEGER DEFAULT 0")
 
-      // Update existing timers with sequential order based on created_at
       const existingTimers = db.prepare("SELECT id FROM timers ORDER BY created_at ASC").all()
       const updateStmt = db.prepare("UPDATE timers SET display_order = ? WHERE id = ?")
 
@@ -145,8 +152,45 @@ function runMigrations() {
 
       console.log(`Updated ${existingTimers.length} existing timers with display order`)
     } catch (error) {
-      console.error("Error adding display_order column:", error)
+      console.error("Error adding display_order column to timers:", error)
     }
+  }
+
+  // Check if new sound columns exist
+  const soundTableInfo = db.prepare("PRAGMA table_info(sounds)").all()
+  const soundColumns = soundTableInfo.map((col) => col.name)
+
+  const newSoundColumns = [
+    { name: "volume", type: "REAL DEFAULT 1.0" },
+    { name: "start_time", type: "REAL DEFAULT 0" },
+    { name: "end_time", type: "REAL" },
+    { name: "primary_color", type: "TEXT DEFAULT '#3b82f6'" },
+    { name: "secondary_color", type: "TEXT DEFAULT '#60a5fa'" },
+    { name: "display_order", type: "INTEGER DEFAULT 0" },
+  ]
+
+  for (const column of newSoundColumns) {
+    if (!soundColumns.includes(column.name)) {
+      console.log(`Adding ${column.name} column to sounds table...`)
+      try {
+        db.exec(`ALTER TABLE sounds ADD COLUMN ${column.name} ${column.type}`)
+      } catch (error) {
+        console.error(`Error adding ${column.name} column to sounds:`, error)
+      }
+    }
+  }
+
+  // Update existing sounds with display order
+  const existingSounds = db.prepare("SELECT id FROM sounds WHERE display_order = 0 ORDER BY created_at ASC").all()
+  if (existingSounds.length > 0) {
+    console.log("Updating existing sounds with display order...")
+    const updateSoundStmt = db.prepare("UPDATE sounds SET display_order = ? WHERE id = ?")
+
+    existingSounds.forEach((sound, index) => {
+      updateSoundStmt.run(index + 1, sound.id)
+    })
+
+    console.log(`Updated ${existingSounds.length} existing sounds with display order`)
   }
 
   console.log("Database migrations completed")

@@ -28,40 +28,65 @@ function setupIpcHandlers(db, soundsPath, isDev) {
 }
 
 function setupSoundHandlers(db, soundsPath, isDev) {
-  ipcMain.handle("upload-sound", async (event, { name, buffer, originalName }) => {
-    try {
-      const id = Date.now().toString() + Math.random().toString(36).substr(2, 9)
-      const ext = path.extname(originalName)
-      const filename = `${id}${ext}`
-      const filepath = path.join(soundsPath, filename)
+  ipcMain.handle(
+    "upload-sound",
+    async (
+      event,
+      {
+        name,
+        buffer,
+        originalName,
+        startTime = 0,
+        endTime,
+        volume = 1,
+        primaryColor = "#3b82f6",
+        secondaryColor = "#60a5fa",
+      },
+    ) => {
+      try {
+        const id = Date.now().toString() + Math.random().toString(36).substr(2, 9)
+        const ext = path.extname(originalName)
+        const filename = `${id}${ext}`
+        const filepath = path.join(soundsPath, filename)
 
-      // Write file to sounds directory
-      fs.writeFileSync(filepath, buffer)
+        // Write file to sounds directory
+        fs.writeFileSync(filepath, buffer)
 
-      // Save to database
-      const stmt = db.prepare(`
-        INSERT INTO sounds (id, name, filename, filepath)
-        VALUES (?, ?, ?, ?)
+        // Get the highest display_order and increment
+        const maxOrderResult = db.prepare("SELECT MAX(display_order) as max_order FROM sounds").get()
+        const displayOrder = (maxOrderResult.max_order || 0) + 1
+
+        // Save to database with new fields
+        const stmt = db.prepare(`
+        INSERT INTO sounds (id, name, filename, filepath, volume, start_time, end_time, primary_color, secondary_color, display_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
-      stmt.run(id, name, filename, filepath)
+        stmt.run(id, name, filename, filepath, volume, startTime, endTime, primaryColor, secondaryColor, displayOrder)
 
-      return {
-        id,
-        name,
-        filename,
-        filepath,
-        url: isDev ? `http://localhost:3000/sounds/${filename}` : `file://${filepath}`,
+        return {
+          id,
+          name,
+          filename,
+          filepath,
+          url: isDev ? `http://localhost:3000/sounds/${filename}` : `file://${filepath}`,
+          volume,
+          start_time: startTime,
+          end_time: endTime,
+          primary_color: primaryColor,
+          secondary_color: secondaryColor,
+          display_order: displayOrder,
+        }
+      } catch (error) {
+        console.error("Error uploading sound:", error)
+        throw error
       }
-    } catch (error) {
-      console.error("Error uploading sound:", error)
-      throw error
-    }
-  })
+    },
+  )
 
   ipcMain.handle("get-sounds", async () => {
     try {
-      const stmt = db.prepare("SELECT * FROM sounds ORDER BY created_at DESC")
+      const stmt = db.prepare("SELECT * FROM sounds ORDER BY display_order ASC, created_at DESC")
       const sounds = stmt.all()
 
       return sounds.map((sound) => ({
@@ -71,6 +96,72 @@ function setupSoundHandlers(db, soundsPath, isDev) {
     } catch (error) {
       console.error("Error getting sounds:", error)
       return []
+    }
+  })
+
+  ipcMain.handle(
+    "update-sound",
+    async (event, { id, name, volume, start_time, end_time, primary_color, secondary_color }) => {
+      try {
+        const updates = []
+        const values = []
+
+        if (name !== undefined) {
+          updates.push("name = ?")
+          values.push(name)
+        }
+        if (volume !== undefined) {
+          updates.push("volume = ?")
+          values.push(volume)
+        }
+        if (start_time !== undefined) {
+          updates.push("start_time = ?")
+          values.push(start_time)
+        }
+        if (end_time !== undefined) {
+          updates.push("end_time = ?")
+          values.push(end_time)
+        }
+        if (primary_color !== undefined) {
+          updates.push("primary_color = ?")
+          values.push(primary_color)
+        }
+        if (secondary_color !== undefined) {
+          updates.push("secondary_color = ?")
+          values.push(secondary_color)
+        }
+
+        if (updates.length > 0) {
+          values.push(id)
+          const stmt = db.prepare(`UPDATE sounds SET ${updates.join(", ")} WHERE id = ?`)
+          stmt.run(...values)
+        }
+
+        return true
+      } catch (error) {
+        console.error("Error updating sound:", error)
+        throw error
+      }
+    },
+  )
+
+  ipcMain.handle("update-sound-order", async (event, soundOrders) => {
+    try {
+      console.log("Updating sound order:", soundOrders)
+
+      const stmt = db.prepare("UPDATE sounds SET display_order = ? WHERE id = ?")
+      const transaction = db.transaction((orders) => {
+        for (const { id, order } of orders) {
+          stmt.run(order, id)
+        }
+      })
+
+      transaction(soundOrders)
+      console.log("Sound order updated successfully")
+      return true
+    } catch (error) {
+      console.error("Error updating sound order:", error)
+      throw error
     }
   })
 

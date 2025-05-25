@@ -1,25 +1,36 @@
 "use client"
 
-import { SoundPreview } from "@/components/SoundPreview"
+import type React from "react"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Trash2, Upload } from "lucide-react"
-import type React from "react"
+import { Upload } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
+import { DraggableSoundGrid } from "./sounds/DraggableSoundGrid"
+import { SoundEditModal } from "./sounds/SoundEditModal"
+import { SoundUploadModal } from "./sounds/SoundUploadModal"
 
-interface CustomSound {
+interface Sound {
   id: string
   name: string
   filename: string
   filepath: string
   url: string
   duration?: number
+  volume?: number
+  start_time?: number
+  end_time?: number
+  primary_color?: string
+  secondary_color?: string
   created_at: string
+  display_order?: number
 }
 
 export function SoundsManager() {
-  const [customSounds, setCustomSounds] = useState<CustomSound[]>([])
+  const [sounds, setSounds] = useState<Sound[]>([])
   const [uploading, setUploading] = useState(false)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [editingSound, setEditingSound] = useState<Sound | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Load sounds from database on mount
@@ -30,69 +41,93 @@ export function SoundsManager() {
   const loadSounds = async () => {
     if (window.electronAPI) {
       try {
-        const sounds = await window.electronAPI.getSounds()
-        setCustomSounds(sounds)
+        const soundsData = await window.electronAPI.getSounds()
+        setSounds(soundsData)
 
         // Update localStorage for timer panel compatibility
-        const soundsForStorage = sounds.map((sound) => ({
+        const soundsForStorage = soundsData.map((sound: Sound) => ({
           id: sound.id,
           name: sound.name,
           url: sound.url,
+          primary_color: sound.primary_color,
+          secondary_color: sound.secondary_color,
         }))
         localStorage.setItem("karyayana-sounds", JSON.stringify(soundsForStorage))
+
+        // Dispatch event to notify other components
+        window.dispatchEvent(new CustomEvent("sounds-updated"))
       } catch (error) {
         console.error("Error loading sounds:", error)
       }
     }
   }
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
-    if (!files || !window.electronAPI) return
-
-    setUploading(true)
-
-    try {
-      for (const file of Array.from(files)) {
-        if (file.type.startsWith("audio/")) {
-          const buffer = Buffer.from(await file.arrayBuffer())
-          const name = file.name.replace(/\.[^/.]+$/, "") // Remove extension
-
-          const savedSound = await window.electronAPI.uploadSound({
-            name,
-            buffer,
-            originalName: file.name,
-          })
-
-          // Get duration and update
-          const audio = new Audio(savedSound.url)
-          audio.addEventListener("loadedmetadata", async () => {
-            if (window.electronAPI) {
-              await window.electronAPI.updateSoundDuration({
-                id: savedSound.id,
-                duration: audio.duration,
-              })
-              // Reload sounds to get updated duration
-              loadSounds()
-            }
-          })
-        }
-      }
-
-      // Reload sounds
-      await loadSounds()
-    } catch (error) {
-      console.error("Error uploading files:", error)
-    } finally {
-      setUploading(false)
-      // Reset input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
+    if (files && files[0] && files[0].type.startsWith("audio/")) {
+      setUploadFile(files[0])
+    }
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
     }
   }
 
-  const deleteSound = async (id: string) => {
+  const handleUploadConfirm = async (data: {
+    name: string
+    startTime: number
+    endTime: number
+    volume: number
+    primaryColor: string
+    secondaryColor: string
+  }) => {
+    if (!uploadFile || !window.electronAPI) return
+
+    setUploading(true)
+    try {
+      const buffer = Buffer.from(await uploadFile.arrayBuffer())
+
+      await window.electronAPI.uploadSound({
+        name: data.name,
+        buffer,
+        originalName: uploadFile.name,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        volume: data.volume,
+        primaryColor: data.primaryColor,
+        secondaryColor: data.secondaryColor,
+      })
+
+      await loadSounds()
+      setUploadFile(null)
+    } catch (error) {
+      console.error("Error uploading sound:", error)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleEditSave = async (data: {
+    id: string
+    name: string
+    volume: number
+    start_time: number
+    end_time: number
+    primary_color: string
+    secondary_color: string
+  }) => {
+    if (!window.electronAPI) return
+
+    try {
+      await window.electronAPI.updateSound(data)
+      await loadSounds()
+      setEditingSound(null)
+    } catch (error) {
+      console.error("Error updating sound:", error)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
     if (!window.electronAPI) return
 
     try {
@@ -103,10 +138,34 @@ export function SoundsManager() {
     }
   }
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, "0")}`
+  const handleRename = async (id: string, newName: string) => {
+    if (!window.electronAPI) return
+
+    try {
+      await window.electronAPI.updateSound({ id, name: newName })
+      await loadSounds()
+    } catch (error) {
+      console.error("Error renaming sound:", error)
+    }
+  }
+
+  const handleReorder = async (newSounds: Sound[]) => {
+    // Update local state immediately
+    setSounds(newSounds)
+
+    // Save order to database
+    if (window.electronAPI) {
+      try {
+        const soundOrders = newSounds.map((sound, index) => ({
+          id: sound.id,
+          order: index,
+        }))
+        await window.electronAPI.updateSoundOrder(soundOrders)
+        await loadSounds() // Refresh to ensure consistency
+      } catch (error) {
+        console.error("Error updating sound order:", error)
+      }
+    }
   }
 
   return (
@@ -121,7 +180,7 @@ export function SoundsManager() {
             <Upload className="h-12 w-12 text-slate-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-slate-700 dark:text-slate-300 mb-2">Upload Audio Files</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-              Drag and drop audio files here, or click to browse
+              Upload, trim, and customize your audio files with volume and color settings
             </p>
             <Button
               onClick={() => fileInputRef.current?.click()}
@@ -130,100 +189,57 @@ export function SoundsManager() {
             >
               {uploading ? "Uploading..." : "Choose Files"}
             </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="audio/*"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
+            <input ref={fileInputRef} type="file" accept="audio/*" onChange={handleFileSelect} className="hidden" />
             <p className="text-xs text-slate-400 mt-2">Supports MP3, WAV, OGG, and other audio formats</p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Custom Sounds Library */}
-      {customSounds.length > 0 && (
+      {/* Sounds Library */}
+      {sounds.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="font-serif">Your Sound Library ({customSounds.length})</CardTitle>
+            <CardTitle className="font-serif">Your Sound Library ({sounds.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {customSounds.map((sound) => (
-                <div
-                  key={sound.id}
-                  className="flex items-center gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors animate-fade-in"
-                >
-                  <SoundPreview url={sound.url} />
-
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{sound.name}</p>
-                    {sound.duration && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{formatDuration(sound.duration)}</p>
-                    )}
-                    <p className="text-xs text-slate-400">{new Date(sound.created_at).toLocaleDateString()}</p>
-                  </div>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteSound(sound.id)}
-                    className="h-8 w-8 p-0 text-red-500 hover:text-red-600"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+            <DraggableSoundGrid
+              sounds={sounds}
+              onEdit={(sound) => setEditingSound(sound)}
+              onDelete={handleDelete}
+              onRename={handleRename}
+              onReorder={(newSounds) => handleReorder(newSounds)}
+            />
           </CardContent>
         </Card>
       )}
 
-      {/* Built-in Chakra Tones */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-serif">Built-in Chakra Tones</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-            {[
-              { name: "Root Chakra", frequency: "256 Hz", color: "bg-red-500" },
-              { name: "Sacral Chakra", frequency: "288 Hz", color: "bg-orange-500" },
-              { name: "Solar Plexus", frequency: "320 Hz", color: "bg-yellow-500" },
-              { name: "Heart Chakra", frequency: "341.3 Hz", color: "bg-green-500" },
-              { name: "Throat Chakra", frequency: "384 Hz", color: "bg-blue-500" },
-              { name: "Third Eye", frequency: "426.7 Hz", color: "bg-indigo-500" },
-              { name: "Crown Chakra", frequency: "480 Hz", color: "bg-purple-500" },
-            ].map((tone) => (
-              <div
-                key={tone.name}
-                className="flex items-center gap-3 p-2 border border-slate-200 dark:border-slate-700 rounded-lg"
-              >
-                <div className={`w-3 h-3 rounded-full ${tone.color}`} />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{tone.name}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{tone.frequency}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {customSounds.length === 0 && !uploading && (
+      {/* Empty State */}
+      {sounds.length === 0 && !uploading && (
         <div className="text-center py-12 animate-fade-in">
           <div className="text-6xl mb-4">🎵</div>
           <h3 className="text-xl font-serif font-medium text-slate-700 dark:text-slate-300 mb-2">Upload Your Sounds</h3>
           <p className="text-slate-500 dark:text-slate-400 mb-6">
-            Add your own meditation bells, nature sounds, or focus music to enhance your practice.
+            Add your own meditation bells, nature sounds, or focus music with custom trimming, volume, and color coding.
           </p>
-          <p className="text-sm text-slate-400">
-            Sounds are stored securely in your app data folder and synced with the timer panel.
-          </p>
+          <p className="text-sm text-slate-400">Sounds are stored securely and automatically sync with your timers.</p>
         </div>
       )}
+
+      {/* Upload Modal */}
+      <SoundUploadModal
+        file={uploadFile}
+        open={!!uploadFile}
+        onClose={() => setUploadFile(null)}
+        onConfirm={handleUploadConfirm}
+      />
+
+      {/* Edit Modal */}
+      <SoundEditModal
+        sound={editingSound}
+        open={!!editingSound}
+        onClose={() => setEditingSound(null)}
+        onSave={handleEditSave}
+      />
     </div>
   )
 }

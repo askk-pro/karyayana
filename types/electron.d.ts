@@ -8,13 +8,28 @@ declare global {
       // Notification management
       cancelTimerNotification: (timerId: string) => Promise<boolean>
 
-      // Sound management
-      uploadSound: (data: { name: string; buffer: Buffer; originalName: string }) => Promise<{
+      // Enhanced Sound management
+      uploadSound: (data: {
+        name: string
+        buffer: Buffer
+        originalName: string
+        startTime?: number
+        endTime?: number
+        volume?: number
+        primaryColor?: string
+        secondaryColor?: string
+      }) => Promise<{
         id: string
         name: string
         filename: string
         filepath: string
         url: string
+        volume?: number
+        start_time?: number
+        end_time?: number
+        primary_color?: string
+        secondary_color?: string
+        display_order?: number
       }>
       getSounds: () => Promise<
         Array<{
@@ -24,9 +39,25 @@ declare global {
           filepath: string
           url: string
           duration?: number
+          volume?: number
+          start_time?: number
+          end_time?: number
+          primary_color?: string
+          secondary_color?: string
+          display_order?: number
           created_at: string
         }>
       >
+      updateSound: (data: {
+        id: string
+        name?: string
+        volume?: number
+        start_time?: number
+        end_time?: number
+        primary_color?: string
+        secondary_color?: string
+      }) => Promise<boolean>
+      updateSoundOrder: (soundOrders: Array<{ id: string; order: number }>) => Promise<boolean>
       deleteSound: (id: string) => Promise<boolean>
       updateSoundDuration: (data: { id: string; duration: number }) => Promise<boolean>
 

@@ -108,6 +108,9 @@ export function TimerForm({ onCreateTimer, onCancel, sounds, isLoadingSounds }: 
       soundId: selectedSound?.id || "",
     })
 
+    // Close the form after successful creation
+    onCancel()
+
     // Reset form
     setFormData({
       taskName: "",

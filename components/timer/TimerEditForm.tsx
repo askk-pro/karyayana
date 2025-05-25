@@ -138,6 +138,10 @@ export function TimerEditForm({ timer, onUpdateTimer, onCancel, sounds, isLoadin
     }
 
     onUpdateTimer(updatedTimer)
+
+    // Close the form after successful update
+    onCancel()
+
     setErrors({})
   }
 

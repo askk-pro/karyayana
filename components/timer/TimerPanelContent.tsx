@@ -93,6 +93,7 @@ export function TimerPanelContent({
             onPause={onPause}
             onDelete={onDelete}
             onUpdateTimer={onEdit}
+            onReorder={onReorder}
             globalMuted={globalMuted}
             sounds={sounds}
           />

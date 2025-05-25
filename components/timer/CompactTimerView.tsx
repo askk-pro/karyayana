@@ -15,8 +15,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Pause, Play, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { GripVertical, Pause, Play, Trash2 } from "lucide-react"
+import { useRef, useState } from "react"
 
 interface Timer {
   id: string
@@ -55,6 +55,7 @@ interface CompactTimerViewProps {
   onPause: (id: string) => void
   onDelete: (id: string) => void
   onUpdateTimer: (timer: Timer) => void
+  onReorder: (newTimers: Timer[]) => void
   globalMuted: boolean
   sounds: CustomSound[]
 }
@@ -65,6 +66,7 @@ export function CompactTimerView({
   onPause,
   onDelete,
   onUpdateTimer,
+  onReorder,
   globalMuted,
   sounds,
 }: CompactTimerViewProps) {
@@ -72,6 +74,9 @@ export function CompactTimerView({
   const [editingTitle, setEditingTitle] = useState<string | null>(null)
   const [editingDuration, setEditingDuration] = useState<string | null>(null)
   const [hoveredTimer, setHoveredTimer] = useState<string | null>(null)
+  const [draggedTimer, setDraggedTimer] = useState<Timer | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const dragCounter = useRef(0)
 
   const formatTime = (seconds: number) => {
     const isNeg = seconds < 0
@@ -134,21 +139,86 @@ export function CompactTimerView({
     }
   }
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, timer: Timer) => {
+    setDraggedTimer(timer)
+    e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.setData("text/html", timer.id)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedTimer(null)
+    setDragOverIndex(null)
+    dragCounter.current = 0
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+    setDragOverIndex(index)
+  }
+
+  const handleDragEnter = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    dragCounter.current++
+    setDragOverIndex(index)
+  }
+
+  const handleDragLeave = () => {
+    dragCounter.current--
+    if (dragCounter.current === 0) {
+      setDragOverIndex(null)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+    setDragOverIndex(null)
+    dragCounter.current = 0
+
+    if (!draggedTimer) return
+
+    const dragIndex = timers.findIndex((t) => t.id === draggedTimer.id)
+    if (dragIndex === dropIndex) return
+
+    const newTimers = [...timers]
+    const [removed] = newTimers.splice(dragIndex, 1)
+    newTimers.splice(dropIndex, 0, removed)
+
+    onReorder(newTimers)
+    setDraggedTimer(null)
+  }
+
   return (
     <Card>
       <CardContent className="p-4">
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {timers.map((timer) => (
+          {timers.map((timer, index) => (
             <div
               key={timer.id}
-              className="flex items-center gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              draggable
+              onDragStart={(e) => handleDragStart(e, timer)}
+              onDragEnd={handleDragEnd}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragEnter={(e) => handleDragEnter(e, index)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, index)}
+              className={`flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-all duration-200 cursor-grab active:cursor-grabbing ${
+                dragOverIndex === index ? "transform scale-105 shadow-lg" : ""
+              } ${draggedTimer?.id === timer.id ? "opacity-50" : ""}`}
               style={{
-                borderLeftColor: timer.isActive ? timer.primaryColor : undefined,
-                borderLeftWidth: timer.isActive ? "3px" : "1px",
+                borderColor: timer.primaryColor || "#e5e7eb",
+                borderWidth: "2px",
+                boxShadow: timer.isActive ? `0 0 0 1px ${timer.primaryColor}` : undefined,
               }}
               onMouseEnter={() => setHoveredTimer(timer.id)}
               onMouseLeave={() => setHoveredTimer(null)}
             >
+              {/* Drag Handle */}
+              <div className="flex-shrink-0">
+                <GripVertical className="h-4 w-4 text-slate-400" />
+              </div>
+
               {/* Timer Name & Time */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -227,14 +297,14 @@ export function CompactTimerView({
                   </div>
                 ) : (
                   <div
-                    className={`text-lg font-mono font-bold cursor-pointer hover:text-orange-600 ${
+                    className={`text-lg font-mono font-bold cursor-pointer hover:opacity-80 ${
                       timer.fontFamily === "serif"
                         ? "font-serif"
                         : timer.fontFamily === "sans"
                         ? "font-sans"
                         : "font-mono"
                     }`}
-                    style={{ color: getStatusColor(timer) }}
+                    style={{ color: timer.primaryColor || "#f59e0b" }}
                     onClick={() => !timer.isActive && setEditingDuration(timer.id)}
                     title={timer.isActive ? "Cannot edit duration while timer is active" : "Click to edit duration"}
                   >

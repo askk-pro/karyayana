@@ -1,6 +1,7 @@
 "use client"
 
 import { Label } from "@/components/ui/label"
+import { ColorPicker } from "./ColorPicker"
 
 interface TimerCustomizationProps {
   primaryColor: string
@@ -10,15 +11,6 @@ interface TimerCustomizationProps {
   onColorChange: (primary: string, secondary: string) => void
   onFontChange: (family: string, size: string) => void
 }
-
-const colorPresets = [
-  { name: "Orange", primary: "#f59e0b", secondary: "#fbbf24" },
-  { name: "Blue", primary: "#3b82f6", secondary: "#60a5fa" },
-  { name: "Green", primary: "#10b981", secondary: "#34d399" },
-  { name: "Purple", primary: "#8b5cf6", secondary: "#a78bfa" },
-  { name: "Red", primary: "#ef4444", secondary: "#f87171" },
-  { name: "Pink", primary: "#ec4899", secondary: "#f472b6" },
-]
 
 const fontOptions = [
   { name: "Monospace", value: "mono" },
@@ -42,32 +34,11 @@ export function TimerCustomization({
   onFontChange,
 }: TimerCustomizationProps) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <Label className="text-sm font-medium">Timer Appearance</Label>
 
-      {/* Color Presets */}
-      <div>
-        <Label className="text-xs text-slate-600 dark:text-slate-400 mb-2 block">Color Theme</Label>
-        <div className="grid grid-cols-3 gap-2">
-          {colorPresets.map((preset) => (
-            <button
-              key={preset.name}
-              onClick={() => onColorChange(preset.primary, preset.secondary)}
-              className={`flex items-center space-x-2 p-2 rounded border text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors ${
-                primaryColor === preset.primary
-                  ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
-                  : "border-slate-200 dark:border-slate-700"
-              }`}
-            >
-              <div
-                className="w-4 h-4 rounded-full border border-slate-300"
-                style={{ backgroundColor: preset.primary }}
-              />
-              <span>{preset.name}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Color Picker */}
+      <ColorPicker primaryColor={primaryColor} secondaryColor={secondaryColor} onColorChange={onColorChange} />
 
       {/* Font Options */}
       <div className="grid grid-cols-2 gap-3">
@@ -99,22 +70,6 @@ export function TimerCustomization({
               </option>
             ))}
           </select>
-        </div>
-      </div>
-
-      {/* Preview */}
-      <div className="p-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800">
-        <Label className="text-xs text-slate-600 dark:text-slate-400 mb-2 block">Preview</Label>
-        <div className="flex justify-center">
-          <div
-            className={`${fontSize} font-bold`}
-            style={{
-              color: primaryColor,
-              fontFamily: fontFamily === "mono" ? "monospace" : fontFamily === "serif" ? "serif" : "sans-serif",
-            }}
-          >
-            25:00
-          </div>
         </div>
       </div>
     </div>

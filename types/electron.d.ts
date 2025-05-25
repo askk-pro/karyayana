@@ -1,7 +1,13 @@
-// Electron API type declarations
+// Enhanced Electron API type declarations
 declare global {
   interface Window {
     electronAPI: {
+      // System timestamp for accurate calculations
+      getCurrentTimestamp: () => Promise<number>
+
+      // Notification management
+      cancelTimerNotification: (timerId: string) => Promise<boolean>
+
       // Sound management
       uploadSound: (data: { name: string; buffer: Buffer; originalName: string }) => Promise<{
         id: string
@@ -23,6 +29,17 @@ declare global {
       >
       deleteSound: (id: string) => Promise<boolean>
       updateSoundDuration: (data: { id: string; duration: number }) => Promise<boolean>
+
+      // Enhanced Timer management
+      saveTimer: (timer: any) => Promise<any>
+      getTimers: () => Promise<any[]>
+      updateTimer: (timer: any) => Promise<any>
+      updateTimerOrder: (timerOrders: Array<{ id: string; order: number }>) => Promise<boolean>
+      deleteTimer: (id: string) => Promise<boolean>
+
+      // App settings
+      getAppSetting: (key: string) => Promise<string | null>
+      setAppSetting: (data: { key: string; value: string }) => Promise<boolean>
 
       // Task management
       saveTask: (task: any) => Promise<any>

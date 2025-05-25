@@ -34,6 +34,8 @@ interface CustomSound {
   id: string
   name: string
   url: string
+  primary_color?: string
+  secondary_color?: string
 }
 
 export function useTimerData() {
@@ -141,7 +143,7 @@ export function useTimerData() {
     loadGlobalMute()
   }, [])
 
-  // Load sounds from database
+  // Load sounds from database with enhanced data
   useEffect(() => {
     const loadSounds = async () => {
       setIsLoadingSounds(true)
@@ -154,6 +156,8 @@ export function useTimerData() {
             id: sound.id,
             name: sound.name,
             url: sound.url,
+            primary_color: sound.primary_color,
+            secondary_color: sound.secondary_color,
           }))
 
           setSounds(formattedSounds)
@@ -182,13 +186,20 @@ export function useTimerData() {
       }
     }
 
+    // Listen for sounds-updated event
+    const handleSoundsUpdated = () => {
+      loadSounds()
+    }
+
     window.addEventListener("storage", handleStorageChange)
+    window.addEventListener("sounds-updated", handleSoundsUpdated)
 
     // Also check periodically for updates
     const interval = setInterval(loadSounds, 2000)
 
     return () => {
       window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener("sounds-updated", handleSoundsUpdated)
       clearInterval(interval)
     }
   }, [])

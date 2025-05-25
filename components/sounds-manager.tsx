@@ -1,10 +1,8 @@
 "use client"
 
-import { SoundDetailModal } from "@/components/SoundDetailModal"
 import { SoundPreview } from "@/components/SoundPreview"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { UploadPreviewModal } from "@/components/UploadPreviewModal"
 import { Trash2, Upload } from "lucide-react"
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
@@ -22,13 +20,9 @@ interface CustomSound {
 export function SoundsManager() {
   const [customSounds, setCustomSounds] = useState<CustomSound[]>([])
   const [uploading, setUploading] = useState(false)
-  const [previewFile, setPreviewFile] = useState<File | null>(null)
-  const [selectedSound, setSelectedSound] = useState<CustomSound | null>(null)
-  const [showUploadModal, setShowUploadModal] = useState(false)
-  const [showDetailModal, setShowDetailModal] = useState(false)
-
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Load sounds from database on mount
   useEffect(() => {
     loadSounds()
   }, [])
@@ -38,6 +32,8 @@ export function SoundsManager() {
       try {
         const sounds = await window.electronAPI.getSounds()
         setCustomSounds(sounds)
+
+        // Update localStorage for timer panel compatibility
         const soundsForStorage = sounds.map((sound) => ({
           id: sound.id,
           name: sound.name,
@@ -50,63 +46,60 @@ export function SoundsManager() {
     }
   }
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
     if (!files || !window.electronAPI) return
-    const file = files[0]
-    if (file?.type.startsWith("audio/")) {
-      setPreviewFile(file)
-      setShowUploadModal(true)
-    }
-  }
-
-  const confirmUpload = async () => {
-    if (!previewFile || !window.electronAPI) return
 
     setUploading(true)
+
     try {
-      const buffer = Buffer.from(await previewFile.arrayBuffer())
-      const name = previewFile.name.replace(/\.[^/.]+$/, "")
+      for (const file of Array.from(files)) {
+        if (file.type.startsWith("audio/")) {
+          const buffer = Buffer.from(await file.arrayBuffer())
+          const name = file.name.replace(/\.[^/.]+$/, "") // Remove extension
 
-      const savedSound = await window.electronAPI.uploadSound({
-        name,
-        buffer,
-        originalName: previewFile.name,
-      })
-
-      // ✅ Immediately show added sound
-      await loadSounds()
-
-      const audio = new Audio(savedSound.url)
-      audio.addEventListener("loadedmetadata", async () => {
-        if (window.electronAPI) {
-          await window.electronAPI.updateSoundDuration({
-            id: savedSound.id,
-            duration: audio.duration,
+          const savedSound = await window.electronAPI.uploadSound({
+            name,
+            buffer,
+            originalName: file.name,
           })
-          // ✅ Refresh after setting duration
-          await loadSounds()
+
+          // Get duration and update
+          const audio = new Audio(savedSound.url)
+          audio.addEventListener("loadedmetadata", async () => {
+            if (window.electronAPI) {
+              await window.electronAPI.updateSoundDuration({
+                id: savedSound.id,
+                duration: audio.duration,
+              })
+              // Reload sounds to get updated duration
+              loadSounds()
+            }
+          })
         }
-      })
-    } catch (err) {
-      console.error("Upload failed:", err)
+      }
+
+      // Reload sounds
+      await loadSounds()
+    } catch (error) {
+      console.error("Error uploading files:", error)
     } finally {
       setUploading(false)
-      setShowUploadModal(false)
-      setPreviewFile(null)
-      if (fileInputRef.current) fileInputRef.current.value = ""
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
     }
   }
 
   const deleteSound = async (id: string) => {
     if (!window.electronAPI) return
+
     try {
       await window.electronAPI.deleteSound(id)
       await loadSounds()
-      setShowDetailModal(false)
-      setSelectedSound(null)
-    } catch (err) {
-      console.error("Delete failed:", err)
+    } catch (error) {
+      console.error("Error deleting sound:", error)
     }
   }
 
@@ -118,20 +111,7 @@ export function SoundsManager() {
 
   return (
     <div className="space-y-6">
-      <UploadPreviewModal
-        file={previewFile}
-        open={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
-        onConfirm={confirmUpload}
-      />
-
-      <SoundDetailModal
-        sound={selectedSound}
-        open={showDetailModal}
-        onClose={() => setShowDetailModal(false)}
-        onDelete={() => selectedSound && deleteSound(selectedSound.id)}
-      />
-
+      {/* Upload Section */}
       <Card>
         <CardHeader>
           <CardTitle className="font-serif">Upload Custom Sounds</CardTitle>
@@ -153,7 +133,7 @@ export function SoundsManager() {
             <input
               ref={fileInputRef}
               type="file"
-              multiple={false}
+              multiple
               accept="audio/*"
               onChange={handleFileUpload}
               className="hidden"
@@ -163,6 +143,7 @@ export function SoundsManager() {
         </CardContent>
       </Card>
 
+      {/* Custom Sounds Library */}
       {customSounds.length > 0 && (
         <Card>
           <CardHeader>
@@ -173,13 +154,10 @@ export function SoundsManager() {
               {customSounds.map((sound) => (
                 <div
                   key={sound.id}
-                  className="flex items-center gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                  onClick={() => {
-                    setSelectedSound(sound)
-                    setShowDetailModal(true)
-                  }}
+                  className="flex items-center gap-3 p-3 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors animate-fade-in"
                 >
                   <SoundPreview url={sound.url} />
+
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{sound.name}</p>
                     {sound.duration && (
@@ -187,12 +165,11 @@ export function SoundsManager() {
                     )}
                     <p className="text-xs text-slate-400">{new Date(sound.created_at).toLocaleDateString()}</p>
                   </div>
+
                   <Button
-                    {...{ variant: "ghost", size: "sm" }}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      deleteSound(sound.id)
-                    }}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteSound(sound.id)}
                     className="h-8 w-8 p-0 text-red-500 hover:text-red-600"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -202,6 +179,50 @@ export function SoundsManager() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Built-in Chakra Tones */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-serif">Built-in Chakra Tones</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+            {[
+              { name: "Root Chakra", frequency: "256 Hz", color: "bg-red-500" },
+              { name: "Sacral Chakra", frequency: "288 Hz", color: "bg-orange-500" },
+              { name: "Solar Plexus", frequency: "320 Hz", color: "bg-yellow-500" },
+              { name: "Heart Chakra", frequency: "341.3 Hz", color: "bg-green-500" },
+              { name: "Throat Chakra", frequency: "384 Hz", color: "bg-blue-500" },
+              { name: "Third Eye", frequency: "426.7 Hz", color: "bg-indigo-500" },
+              { name: "Crown Chakra", frequency: "480 Hz", color: "bg-purple-500" },
+            ].map((tone) => (
+              <div
+                key={tone.name}
+                className="flex items-center gap-3 p-2 border border-slate-200 dark:border-slate-700 rounded-lg"
+              >
+                <div className={`w-3 h-3 rounded-full ${tone.color}`} />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{tone.name}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{tone.frequency}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {customSounds.length === 0 && !uploading && (
+        <div className="text-center py-12 animate-fade-in">
+          <div className="text-6xl mb-4">🎵</div>
+          <h3 className="text-xl font-serif font-medium text-slate-700 dark:text-slate-300 mb-2">Upload Your Sounds</h3>
+          <p className="text-slate-500 dark:text-slate-400 mb-6">
+            Add your own meditation bells, nature sounds, or focus music to enhance your practice.
+          </p>
+          <p className="text-sm text-slate-400">
+            Sounds are stored securely in your app data folder and synced with the timer panel.
+          </p>
+        </div>
       )}
     </div>
   )
